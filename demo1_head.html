@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - postprocessing</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+				margin: 0px;
+				background-color: #ffffff;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="js/libs/three.min.js"></script>
+
+		<script src="js/libs/shaders/CopyShader.js"></script>
+
+
+		<script src="js/libs/postprocessing/EffectComposer.js"></script>
+		<script src="js/libs/postprocessing/RenderPass.js"></script>
+		<script src="js/libs/postprocessing/MaskPass.js"></script>
+		<script src="js/libs/postprocessing/ShaderPass.js"></script>
+
+		<script src="js/libs/OrbitControls.js"></script>
+		<script src="js/SceneParser.js"></script>
+        <script src="js/PixelateShader.js"></script>
+        <script src="js/GameboyShader.js"></script>
+
+		<script>
+
+			var camera, scene, renderer, composer, light;
+
+			var WIDTH = 860;
+			var HEIGHT = 720;
+            var scale = 0.5;
+
+			var effectPixelate;
+			var controls;
+
+			init();
+			animate();
+
+			function init() {
+
+				renderer = new THREE.WebGLRenderer({antialias:false} );
+				renderer.setSize(WIDTH, HEIGHT );
+				renderer.shadowMapEnabled = true;
+        		renderer.shadowMapSoft = false;
+				document.body.appendChild( renderer.domElement );
+
+				scene = new THREE.Scene();
+                scene.fog = new THREE.Fog( 0x000000, 1, 1000 );
+
+                scene.add( new THREE.AmbientLight( 0x222222 ) );
+
+       			camera = new THREE.PerspectiveCamera( 70, 860 / 720, 1, 10000 );
+       			scene.add(camera);
+   				camera.position.set(0,150,300);
+        		camera.lookAt(scene.position);
+                controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+                light = new THREE.DirectionalLight( 0xFFFFFF );
+		        light.position.set( -200, 160, 60 );
+		        light.target.position.copy( scene.position );
+		        light.castShadow = true;
+		        light.shadowCameraLeft = -200;
+		        light.shadowCameraTop = -200;
+		        light.shadowCameraRight = 200;
+		        light.shadowCameraBottom = 200;
+		        light.shadowCameraNear = 50;
+		        light.shadowCameraFar =1000;
+		        light.shadowBias = -0.001;
+		        light.shadowMapWidth = light.shadowMapHeight = 1024;
+		        light.shadowDarkness = 1;
+		        scene.add( light );
+
+       			var sceneParser = new THREE.SceneParser(scene);
+                sceneParser.loadAndParse("assets/head.json");
+				
+				// postprocessing
+				var parameters = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, format: THREE.RGBFormat };
+				var renderTarget = new THREE.WebGLRenderTarget( WIDTH*scale, HEIGHT*scale, parameters );
+
+				composer = new THREE.EffectComposer( renderer,renderTarget );
+				composer.setSize( WIDTH*scale, HEIGHT*scale );
+
+				composer.addPass( new THREE.RenderPass( scene, camera ) );
+
+
+				effectPixelate = new THREE.ShaderPass( THREE.PixelateShader );
+				effectPixelate.uniforms[ 'size' ].value.x = WIDTH*scale;
+				effectPixelate.uniforms[ 'size' ].value.y = HEIGHT*scale;
+				effectPixelate.uniforms[ 'pixelSize' ].value = 250;
+				composer.addPass(effectPixelate);
+
+				var effect = new THREE.ShaderPass( THREE.GameBoyShader );
+				composer.addPass(effect);
+
+				var effect = new THREE.ShaderPass( THREE.CopyShader );
+				effect.renderToScreen = true;
+				composer.addPass( effect );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+                onWindowResize();
+    		}
+
+
+			function onWindowResize() {
+                renderer.domElement.style.position = "absolute";
+                renderer.domElement.style.top = Math.round((window.innerHeight * 0.5) - (HEIGHT * 0.5)) + "px";
+                renderer.domElement.style.left = Math.round((window.innerWidth * 0.5) - (WIDTH * 0.5)) + "px";
+			}
+
+			function animate() {
+				controls.update();
+				composer.render();
+                requestAnimationFrame( animate );
+            }
+
+		</script>
+
+	</body>
+</html>
